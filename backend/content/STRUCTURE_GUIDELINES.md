@@ -134,17 +134,187 @@ backend/content/src/
   await log_info("Processing blog post creation...")
   ```
 
+## 📐 Unified Schema Language
+
+To enable sharing models across different integrations, follow this standardized schema definition process:
+
+### Schema Definition Pattern
+All models should follow a consistent structure that separates concerns while enabling reuse:
+
+```python
+# Unified schema pattern
+from pydantic import BaseModel, Field
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+class BaseSchema(BaseModel):
+    """Base schema with common fields for all models"""
+    id: str = Field(alias="_id", default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    class Config:
+        allow_population_by_field_name = True
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+# Example command schema
+class CreateBlogPostCommand(BaseSchema):
+    title: str = Field(..., max_length=200)
+    content: str
+    author_id: str
+    tags: Optional[List[str]] = Field(default=None)
+
+# Example query schema  
+class GetBlogPostQuery(BaseSchema):
+    post_id: str
+    include_content: bool = Field(default=True)
+
+# Example database model
+class BlogPostDB(Base):
+    __tablename__ = "blog_posts"
+    
+    id = Column(String, primary_key=True)
+    title = Column(String, index=True, length=200)
+    content = Column(Text)
+    author_id = Column(String)
+    tags = Column(String, default="[]")  # Stored as JSON string
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+### Integration Pattern
+When integrating with external systems, use the schema conversion layer:
+
+```python
+# Schema conversion for external integration
+def convert_db_to_query(db_model: BlogPostDB) -> Dict:
+    """Convert database model to query response schema"""
+    return {
+        "id": str(db_model.id),
+        "title": db_model.title,
+        "content": db_model.content,
+        "author_id": db_model.author_id,
+        "tags": json.loads(db_model.tags) if db_model.tags else [],
+        "created_at": db_model.created_at.isoformat(),
+        "updated_at": db_model.updated_at.isoformat()
+    }
+
+def convert_external_to_command(external_data: Dict) -> CreateBlogPostCommand:
+    """Convert external system data to command schema"""
+    return CreateBlogPostCommand(
+        title=external_data.get("title"),
+        content=external_data.get("content"),
+        author_id=external_data.get("authorId"),
+        tags=external_data.get("tags", [])
+    )
+```
+
+### Sharing Across Integrations
+1. **Central Schema Registry**: Keep shared schemas in a dedicated module
+2. **Type Hints**: Use Python type hints for IDE support and validation
+3. **JSON Serialization**: Ensure all schemas have consistent JSON configuration
+4. **Database Mapping**: Use SQLAlchemy models as the single source of truth
+5. **API Contracts**: Define clear API contracts using the standardized schemas
+
+### Example: Multi-Integration Schema
+```python
+# schemas/__init__.py - Central schema definitions
+from .base import BaseSchema
+from .commands import CreateBlogPostCommand, UpdateBlogPostCommand
+from .queries import GetBlogPostQuery, ListBlogPostsQuery
+
+# external_integration.py - Using shared schemas
+from schemas import CreateBlogPostCommand
+
+def process_external_post(external_data: Dict):
+    """Process posts from external systems using standardized schemas"""
+    command = CreateBlogPostCommand(
+        title=external_data["title"],
+        content=external_data["content"],
+        author_id=external_data["author"]["id"]
+    )
+    # Continue with command handler
+```
+
+## 🐳 Docker Deployment
+
+### Container Structure
+The service is containerized with the following structure:
+```
+backend/content/
+├── Dockerfile
+├── docker-entrypoint.sh
+├── requirements.txt
+└── src/
+    └── main.py
+```
+
+### Dockerfile Configuration
+```dockerfile
+# Use Python 3.9 slim image
+FROM python:3.9-slim
+
+# Set working directory
+WORKDIR /app
+
+# Copy requirements file
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Make entrypoint script executable
+RUN chmod +x docker-entrypoint.sh
+
+# Expose port
+EXPOSE 8000
+
+# Run the application via entrypoint script
+ENTRYPOINT ["./docker-entrypoint.sh"]
+```
+
+### Entrypoint Script
+The `docker-entrypoint.sh` script handles initialization and runs the application:
+```bash
+#!/bin/bash
+# run alembic migrations
+# alembic upgrade head
+
+# run the main.py script using python3
+python3 src/main.py
+```
+
+### Building and Running
+```bash
+# Build the Docker image
+docker build -t content-service ./backend/content
+
+# Run the container
+docker run -p 8000:8000 content-service
+```
+
+### Environment Variables
+Configure the service using environment variables:
+- `DATABASE_URL` - Database connection string
+- `LOG_LEVEL` - Logging level (DEBUG, INFO, WARNING, ERROR)
+- `EXTERNAL_API_KEYS` - Keys for external service integrations
+
 ## ⚠️ Key Rules
 1. **No Cross-Dependency**: Commands should never depend on query handlers and vice versa
 2. **Model Separation**: Use distinct models for commands (input) and queries (output)
 3. **Handler Purity**: Keep handlers focused on business logic, not HTTP concerns
 4. **Utility Reuse**: Place shared functionality in `utils/` (e.g., database helpers)
+5. **Schema Standardization**: Follow the unified schema language for cross-integration compatibility
 
 ## 🧪 Testing Strategy
 - **Commands**: Test handlers with mocked database operations
 - **Queries**: Test handlers with mocked database results
 - **API**: Use FastAPI test client for endpoint validation
 - **External Clients**: Mock external service responses for testing
+- **Schema Validation**: Test schema serialization/deserialization
 
 ## 📦 Example Expansion
 To add a `Comment` feature:
@@ -160,5 +330,7 @@ This structure ensures:
 - Independent scaling of read/write operations
 - Maintainable, testable code
 - Consistent utility usage
+- Cross-integration schema compatibility
+- Containerized deployment readiness
 
 > Always update this document when adding new structural patterns or conventions.
