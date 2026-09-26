@@ -1,86 +1,87 @@
 # IntelliHire
 
-IntelliHire is a modern recruitment platform built with FastAPI using the CQRS pattern.
+IntelliHire is a hiring platform built with FastAPI and PostgreSQL, containerized using Docker.
 
-## Project Structure
+## Prerequisites
 
-```
-backend/
-└── content/
-    └── src/
-        ├── api/              # FastAPI endpoint definitions
-        │   └── routers/      # Route handlers for HTTP endpoints
-        ├── commands/         # Write operations (data modification)
-        │   ├── handlers/     # Command execution logic
-        │   └── models/       # Command data models (DTOs)
-        ├── queries/          # Read operations (data retrieval)
-        │   ├── handlers/     # Query execution logic
-        │   └── models/       # Query result models
-        ├── models/           # Shared SQLAlchemy models
-        ├── external_clients/ # External service clients (REST, SOAP, etc.)
-        ├── migrations/       # Alembic database migrations
-        ├── utils/            # Shared utilities (database, logging)
-        └── main.py           # FastAPI application entry point
-```
-
-## CQRS Structure Guidelines
-
-For detailed information about the CQRS structure and how to expand the codebase, see [STRUCTURE_GUIDELINES.md](backend/content/STRUCTURE_GUIDELINES.md).
-
-## Adding External Clients
-
-External service clients that don't have SDKs should be placed in the `external_clients/` directory. This includes REST clients, SOAP clients, or any other custom integration.
-
-Example:
-```
-external_clients/
-├── __init__.py
-├── payment_gateway.py     # Custom REST client for payment processing
-└── hr_system.py           # Custom client for HR system integration
-```
-
-## Database Models and Migrations
-
-- SQLAlchemy models should be placed in the `models/` directory
-- Alembic migrations should be placed in the `migrations/` directory
-
-## Unified Schema Language
-
-To enable sharing models across different integrations, follow the unified schema language defined in [STRUCTURE_GUIDELINES.md](backend/content/STRUCTURE_GUIDELINES.md#unified-schema-language). This ensures consistent schema definitions that can be used across commands, queries, database models, and external integrations.
+- Docker and Docker Compose installed on your machine.
+- Git (to clone the repository).
 
 ## Getting Started
 
-1. Install dependencies:
+1. Clone the repository:
    ```bash
-   pip install -r requirements.txt
+   git clone <repository-url>
+   cd intellihire
    ```
 
-2. Run the application:
-   ```bash
-   uvicorn backend.content.src.main:app --reload
+2. Create a `.env` file in the root directory (if not already present) with the following variables:
+   ```env
+   # ports
+   # adminer
+   MACHINE_ADMINER_PORT=8080
+   ADMINER_PORT=8080
+
+   # postgres
+   POSTGRES_PORT=5432
+   POSTGRES_PASSWORD=postgres
+   POSTGRES_USERNAME=postgres
+
+   # content
+   CONTENT_PORT=4010
    ```
+   Adjust the values as needed.
 
-## Running with Docker
-
-The content service can be containerized using Docker:
-
-1. Build the Docker image:
+3. Build and start the services:
    ```bash
-   docker build -t content-service ./backend/content
+   docker-compose up -d --build
    ```
+   This will start three services:
+   - **postgres**: PostgreSQL database with pgvector extension.
+   - **content**: FastAPI application (the backend API).
+   - **adminer**: Database administration tool (accessible at http://localhost:8080).
 
-2. Run the container:
-   ```bash
-   docker run -p 8000:8000 content-service
-   ```
+4. The application will be available at:
+   - API: http://localhost:4010
+   - Adminer: http://localhost:8080 (use PostgreSQL server `postgres`, username `postgres`, password `postgres`)
 
-The Dockerfile uses an entrypoint script that runs the main.py application.
+## Services Overview
 
-## Development Guidelines
+- **postgres**: Runs on port 5432 (mapped from `POSTGRES_PORT`). Data is persisted in `./backend/db_data/`.
+- **content**: The FastAPI app, built from `backend/content/`, runs on port 4010 (mapped from `CONTENT_PORT`).
+- **adminer**: Runs on port 8080 (mapped from `MACHINE_ADMINER_PORT`) for easy database management.
 
-- Follow the CQRS pattern as described in STRUCTURE_GUIDELINES.md
-- Place external service clients in the `external_clients/` directory
-- Use the `models/` directory for SQLAlchemy models
-- Use the `migrations/` directory for Alembic migrations
-- Place shared utilities in the `utils/` directory
-- Follow the unified schema language for cross-integration compatibility
+## Environment Variables
+
+The `.env` file configures the ports and credentials. Modify these values to avoid conflicts with other services on your machine.
+
+## Stopping the Services
+
+To stop and remove the containers, networks, and volumes:
+```bash
+docker-compose down
+```
+To also remove the persisted database volume:
+```bash
+docker-compose down -v
+```
+
+## Development
+
+If you want to modify the FastAPI code and see changes in real-time without rebuilding the image, consider mounting the source code as a volume in `docker-compose.yml` (currently not set up for development). For production-like testing, rebuild the image after changes:
+```bash
+docker-compose up -d --build
+```
+
+## Notes
+
+- The `content` service uses the command `sh ./docker-entrypoint.sh` to start the application. Ensure the script is executable.
+- The `postgres` service is based on `ankane/pgvector:latest` to support vector operations.
+- The `adminer` service is optional but useful for inspecting the database.
+
+## License
+
+[Specify license if applicable]
+
+---
+*README generated for IntelliHire project.*
