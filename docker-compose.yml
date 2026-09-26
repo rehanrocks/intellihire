@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  content:
+    build: backend/content
+    command: sh ./docker-entrypoint.sh
+    container_name: content
+    ports:
+      - $CONTENT_PORT:$CONTENT_PORT
+    environment:
+      PORT: $CONTENT_PORT

@@ -1,4 +1,4 @@
-# CQRS Structure Guidelines for Content Service
+w# CQRS Structure Guidelines for Content Service
 
 This document defines how to maintain and expand the CQRS-based FastAPI codebase. The structure enforces separation of concerns between commands (write operations) and queries (read operations) while centralizing shared utilities.
 
