@@ -15,9 +15,3 @@ COPY . .
 
 # Set PYTHONPATH to allow relative imports
 ENV PYTHONPATH="/app:${PYTHONPATH}"
-
-# # Expose port
-# EXPOSE 8000
-
-# # Run the application via entrypoint script
-# ENTRYPOINT ["./docker-entrypoint.sh"]
