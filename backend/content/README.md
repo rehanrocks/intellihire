@@ -1,52 +1,87 @@
-# Content Service
+# Content service (IntelliHire API)
 
-The `content` service is the FastAPI backend application for IntelliHire.
+The FastAPI backend. Module 1 (authentication and account management) is implemented; see
+`docs/learning/01-backend-foundations-and-auth-module.md` at the repo root for a guided tour.
 
 ## Structure
 
 ```
 backend/content/
 ├── app/
-│   └── main.py          # FastAPI app initialization and middleware setup
-├── asgi.py              # Entry point for Uvicorn server
-├── docker-entrypoint.sh # Script to run migrations and start the server
-├── requirements.txt     # Python dependencies
-├── Dockerfile           # Container build instructions
-├── controller/          # Route handlers and API endpoints
-├── database/            # Database models, seeds, and connection utilities
-├── schemas/             # Pydantic models for request/response validation
-└── utils/               # Utility functions and helpers
+│   ├── main.py            FastAPI app factory: routers, CORS, error handler, startup
+│   ├── core/              settings, security (bcrypt/JWT), dependencies (auth/RBAC), rate limit, errors
+│   ├── database/          engine/session and SQLAlchemy models (one file per table)
+│   ├── schemas/           Pydantic request/response models
+│   ├── services/          business rules (auth, profile, email, file storage)
+│   └── controller/        routers: /auth, /users, /company, /admin
+├── alembic/               database migrations
+├── scripts/create_admin.py
+├── tests/                 pytest suite, one file per user story
+├── asgi.py                local dev server (auto-reload)
+├── requirements.txt
+└── Dockerfile, docker-entrypoint.sh
 ```
 
-## Key Components
+Request flow: controller -> service -> models. Controllers never contain business rules; services never touch HTTP.
 
-### Core Application Files
+## Local development (Windows PowerShell)
 
-- **app/main.py**: Creates the FastAPI instance and configures CORS middleware to allow cross-origin requests from frontend applications
-- **asgi.py**: Entry point that imports the FastAPI app and runs it with Uvicorn on the PORT environment variable (default: 8000)
-- **docker-entrypoint.sh**: Script that currently runs the ASGI application; can be extended to run database migrations using Alembic
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env                    # edit if needed
+docker compose up -d postgres                  # run from the repo root; listens on host port 5434
+.\.venv\Scripts\alembic.exe upgrade head       # create/upgrade tables
+.\.venv\Scripts\python.exe asgi.py             # http://localhost:8000/docs
+```
 
-### Project Structure
+Create the first platform administrator:
 
-- **controller/**: Will contain API route handlers organized by resource (e.g., `/api/v1/users`, `/api/v1/jobs`)
-- **database/**: Contains SQLAlchemy models for database tables and seed data for initial population
-- **schemas/**: Contains Pydantic models for request/response validation and serialization
-- **utils/**: Contains helper functions and utilities used across the application
+```powershell
+.\.venv\Scripts\python.exe -m scripts.create_admin --email admin@intellihire.com --password "Admin@12345"
+```
 
-## Dependencies
+Without Docker, set `DATABASE_URL=sqlite:///./dev.db` in `.env`; migrations and the app work on SQLite too.
 
-The `requirements.txt` file includes:
-- FastAPI (0.68.0) - Web framework
-- Uvicorn (0.15.0) - ASGI server
-- Pydantic (1.8.2) - Data validation
-- SQLAlchemy (1.4.23) - ORM
-- Alembic (1.7.3) - Database migrations
-- httpx (0.18.2) - HTTP client
-- motor (2.5.1) - MongoDB driver (for potential future use)
+## Tests
 
-## Container Configuration
+```powershell
+.\.venv\Scripts\python.exe -m pytest
+```
 
-- **Dockerfile**: Uses Python 3.9 slim image, installs dependencies, and sets up the application
-- **docker-entrypoint.sh**: Currently runs the application directly; can be extended for database migrations
+Tests use a throw-away SQLite file per test, an in-memory email outbox and fast bcrypt, so they
+need no database server and finish in a few seconds.
 
-This modular structure allows for easy maintenance, testing, and scaling of the FastAPI application.
+## Migrations
+
+```powershell
+.\.venv\Scripts\alembic.exe revision --autogenerate -m "describe the change"   # after editing models
+.\.venv\Scripts\alembic.exe upgrade head
+.\.venv\Scripts\alembic.exe downgrade -1
+```
+
+## Endpoints (all under `/api/v1`)
+
+| Method | Path | Story |
+|---|---|---|
+| POST | /auth/register/individual | US-1.1 |
+| POST, GET | /auth/verify-email | US-1.2 |
+| POST | /auth/resend-verification | US-1.2 |
+| POST | /auth/register/company | US-1.3 |
+| POST | /auth/login | US-1.4 |
+| POST | /auth/logout | US-1.5 |
+| POST | /auth/forgot-password, /auth/reset-password | US-1.6 |
+| GET | /users/me | US-1.4 |
+| GET, PUT | /users/me/profile | US-1.7 |
+| POST, GET, DELETE | /users/me/cv | US-1.7 |
+| GET | /company/me/status, /company/me | US-1.3 / US-3.6 |
+| GET | /admin/overview, /admin/companies/pending | US-1.8 |
+| POST | /admin/companies/{id}/approve, /reject | US-12.4 |
+
+Interactive docs: `/docs` (Swagger UI) and `/redoc`. Health check: `/health`.
+
+## Configuration
+
+Every setting is listed with a comment in `.env.example` and typed in `app/core/config.py`.
+Environment variables override `.env`. Generate a production `SECRET_KEY` with
+`python -c "import secrets; print(secrets.token_urlsafe(48))"`.

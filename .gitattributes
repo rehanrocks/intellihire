@@ -1,0 +1,9 @@
+# Shell scripts run inside Linux containers and must keep LF line endings,
+# even when checked out on Windows.
+*.sh text eol=lf
+*.py text eol=lf
+*.md text
+*.yml text
+*.ini text
+*.docx binary
+*.pdf binary

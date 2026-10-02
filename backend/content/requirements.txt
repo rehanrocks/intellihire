@@ -1,7 +1,22 @@
-fastapi==0.68.0
-uvicorn==0.15.0
-pydantic==1.8.2
-sqlalchemy==1.4.23
-alembic==1.7.3
-httpx==0.18.2
-motor==2.5.1
+﻿# --- Web framework and server ---
+fastapi>=0.115,<1.0          # the web framework: routing, validation, OpenAPI docs
+uvicorn[standard]>=0.30      # ASGI server that actually listens on a port and runs the app
+
+# --- Data validation and settings ---
+pydantic>=2.7,<3.0           # request/response models with validation
+pydantic-settings>=2.3       # loads configuration from environment variables / .env
+email-validator>=2.1         # lets Pydantic validate EmailStr
+
+# --- Database ---
+sqlalchemy>=2.0,<3.0         # ORM: Python classes <-> database tables
+alembic>=1.13                # database migrations (versioned schema changes)
+psycopg[binary]>=3.1         # PostgreSQL driver
+
+# --- Security ---
+bcrypt>=4.1                  # password hashing
+PyJWT>=2.8                   # JSON Web Tokens for sessions
+python-multipart>=0.0.9      # needed by FastAPI for form/file uploads
+
+# --- Testing ---
+pytest>=8.0
+httpx>=0.27                  # HTTP client used by FastAPI's TestClient

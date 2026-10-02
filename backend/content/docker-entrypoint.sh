@@ -1,5 +1,9 @@
-# # run alembic migrations
-# alembic upgrade head
+#!/bin/sh
+# Container start-up: bring the database schema up to date, then serve.
+set -e
 
-# run the main.py script using python3
-python3 asgi.py
+echo "Applying database migrations..."
+alembic upgrade head
+
+echo "Starting API on port ${PORT:-8000}..."
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"

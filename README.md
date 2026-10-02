@@ -1,87 +1,72 @@
 # IntelliHire
 
-IntelliHire is a hiring platform built with FastAPI and PostgreSQL, containerized using Docker.
+AI-powered recruitment, interview and talent-community platform (COMSATS Lahore FYP).
+Backend: FastAPI + PostgreSQL (pgvector), containerised with Docker.
+
+Specification: the FYP report and the derived user-stories document (`docs/IntelliHire-User-Stories.docx`).
+Learning guide for the backend: `docs/learning/01-backend-foundations-and-auth-module.md`.
 
 ## Prerequisites
 
-- Docker and Docker Compose installed on your machine.
-- Git (to clone the repository).
+- Docker Desktop (with Compose)
+- Python 3.12+ (only for running the API outside Docker)
+- Git
 
-## Getting Started
+## Quick start (everything in Docker)
 
-1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd intellihire
-   ```
-
-2. Create a `.env` file in the root directory (if not already present) with the following variables:
-   ```env
-   # ports
-   # adminer
-   MACHINE_ADMINER_PORT=8080
-   ADMINER_PORT=8080
-
-   # postgres
-   POSTGRES_PORT=5432
-   POSTGRES_PASSWORD=postgres
-   POSTGRES_USERNAME=postgres
-
-   # content
-   CONTENT_PORT=4010
-   ```
-   Adjust the values as needed.
-
-3. Build and start the services:
-   ```bash
-   docker-compose up -d --build
-   ```
-   This will start three services:
-   - **postgres**: PostgreSQL database with pgvector extension.
-   - **content**: FastAPI application (the backend API).
-   - **adminer**: Database administration tool (accessible at http://localhost:8080).
-
-4. The application will be available at:
-   - API: http://localhost:4010
-   - Adminer: http://localhost:8080 (use PostgreSQL server `postgres`, username `postgres`, password `postgres`)
-
-## Services Overview
-
-- **postgres**: Runs on port 5432 (mapped from `POSTGRES_PORT`). Data is persisted in `./backend/db_data/`.
-- **content**: The FastAPI app, built from `backend/content/`, runs on port 4010 (mapped from `CONTENT_PORT`).
-- **adminer**: Runs on port 8080 (mapped from `MACHINE_ADMINER_PORT`) for easy database management.
-
-## Environment Variables
-
-The `.env` file configures the ports and credentials. Modify these values to avoid conflicts with other services on your machine.
-
-## Stopping the Services
-
-To stop and remove the containers, networks, and volumes:
-```bash
-docker-compose down
-```
-To also remove the persisted database volume:
-```bash
-docker-compose down -v
+```powershell
+git clone <repository-url>
+cd intellihire
+docker compose up -d --build
 ```
 
-## Development
+Services:
 
-If you want to modify the FastAPI code and see changes in real-time without rebuilding the image, consider mounting the source code as a volume in `docker-compose.yml` (currently not set up for development). For production-like testing, rebuild the image after changes:
-```bash
-docker-compose up -d --build
+| Service | What | URL |
+|---|---|---|
+| postgres | PostgreSQL 15 with the pgvector extension available (`ankane/pgvector` image) | localhost:5434 (host port = `POSTGRES_PORT` in `.env`) |
+| content | FastAPI API; runs `alembic upgrade head` on start | http://localhost:4010/docs |
+| adminer | Database browser | http://localhost:8080 (server `postgres`, user/password `postgres`, db `intellihire`) |
+
+Create the first platform administrator inside the running API container:
+
+```powershell
+docker compose exec content python -m scripts.create_admin --email admin@intellihire.com --password "Admin@12345"
 ```
 
-## Notes
+## Developing the API locally
 
-- The `content` service uses the command `sh ./docker-entrypoint.sh` to start the application. Ensure the script is executable.
-- The `postgres` service is based on `ankane/pgvector:latest` to support vector operations.
-- The `adminer` service is optional but useful for inspecting the database.
+See `backend/content/README.md`. Short version: start only PostgreSQL with
+`docker compose up -d postgres`, then run the API from a virtual environment with auto-reload.
 
-## License
+## Environment variables
 
-[Specify license if applicable]
+`.env` at the repo root configures ports and credentials for docker-compose. Important keys:
 
----
-*README generated for IntelliHire project.*
+| Key | Purpose |
+|---|---|
+| `POSTGRES_PORT` | Host port for PostgreSQL (5434 by default to avoid clashing with a local PostgreSQL on 5432) |
+| `POSTGRES_DB`, `POSTGRES_USERNAME`, `POSTGRES_PASSWORD` | Database name and credentials |
+| `CONTENT_PORT` | Host port for the API |
+| `SECRET_KEY` | Signs login tokens; change it for any real deployment |
+| `FRONTEND_URL` | Base URL used in emailed links |
+| `EMAIL_BACKEND` | `console` (print emails to logs), `smtp`, or `memory` (tests) |
+
+The API service reads its own settings from these (see `docker-compose.yml`) and, when run
+locally, from `backend/content/.env` (copy of `.env.example`).
+
+## Stopping
+
+```powershell
+docker compose down        # stop containers
+docker compose down -v     # also remove volumes
+```
+
+Database files persist in `backend/db_data/` and uploaded CVs in `backend/uploads/`; both are git-ignored.
+
+## Project status
+
+| Module | Status |
+|---|---|
+| 1. Authentication and account management | Implemented, 66 automated tests |
+| 2 to 12 | Planned; see the user-stories document for the backlog |

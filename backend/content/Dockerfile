@@ -1,17 +1,18 @@
-# Use Python 3.9 slim image
-FROM python:3.9-slim
+# Production-style image for the content (API) service.
+FROM python:3.12-slim
 
-# Set working directory
+# Python settings: no .pyc clutter, unbuffered logs (so docker logs shows them live).
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
 WORKDIR /app
 
-# Copy requirements file
+# Install dependencies first so Docker caches this layer between code changes.
 COPY requirements.txt .
-
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Set PYTHONPATH to allow relative imports
-ENV PYTHONPATH="/app:${PYTHONPATH}"
+RUN chmod +x docker-entrypoint.sh
+CMD ["sh", "./docker-entrypoint.sh"]
