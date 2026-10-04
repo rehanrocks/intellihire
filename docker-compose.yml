@@ -39,7 +39,8 @@ services:
     ports:
       - "${CONTENT_PORT}:${CONTENT_PORT}"
     volumes:
-      - ./backend/uploads/:/app/uploads
+      # add alembic migrations to the container so that they can be run from the container
+      # - ./backend/uploads/:/app/uploads 
     environment:
       PORT: ${CONTENT_PORT}
       ENVIRONMENT: ${ENVIRONMENT:-development}
